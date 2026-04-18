@@ -1,0 +1,1472 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>numo — 운영 허브</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Pretendard:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #F5F3EE; --surface: #FFFFFF; --surface2: #F0EDE6;
+  --border: #E0DDD6; --text: #1A1916; --text2: #6B6860; --text3: #A8A49C;
+  --accent: #2D5F4F; --accent-light: #E8F2EE;
+  --warn: #C4622A; --warn-light: #FDF0E8;
+  --mono: 'DM Mono', monospace; --sans: 'Pretendard', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; line-height: 1.6; }
+
+/* ── 헤더 ── */
+header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 16px 32px; display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+}
+.logo { font-family: var(--mono); font-size: 18px; font-weight: 500; letter-spacing: 0.08em; }
+.logo span { color: var(--accent); }
+.header-meta { font-family: var(--mono); font-size: 11px; color: var(--text3); letter-spacing: 0.05em; }
+
+/* ── 탭 ── */
+.tab-bar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; padding: 0 32px; gap: 0; overflow-x: auto;
+}
+.tab {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em;
+  padding: 12px 20px; cursor: pointer; border-bottom: 2px solid transparent;
+  color: var(--text3); background: none; border-top: none; border-left: none; border-right: none;
+  transition: color 0.15s, border-color 0.15s; white-space: nowrap;
+}
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab:hover:not(.active) { color: var(--text2); }
+
+main { max-width: 1100px; margin: 0 auto; padding: 28px 24px 80px; }
+.page { display: none; }
+.page.active { display: block; }
+.page-label { font-size: 11px; font-family: var(--mono); color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 20px; }
+
+/* ── 공통 카드/스탯 ── */
+.stat-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 24px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.stat-label { font-size: 10px; font-family: var(--mono); color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px; }
+.stat-value { font-family: var(--mono); font-size: 20px; font-weight: 500; }
+.stat-value.warn { color: var(--warn); }
+.stat-value.ok   { color: var(--accent); }
+
+/* ── 공통 입력 ── */
+input[type=number], input[type=text], select {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 7px 10px; font-family: var(--mono); font-size: 13px; color: var(--text);
+  outline: none; transition: border-color 0.15s;
+}
+input:focus, select:focus { border-color: var(--accent); }
+
+/* ── 공통 버튼 ── */
+.btn { font-family: var(--mono); font-size: 12px; border-radius: 6px; padding: 7px 16px; cursor: pointer; transition: opacity 0.15s; border: none; letter-spacing: 0.03em; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { opacity: 0.85; }
+.btn-outline { background: none; border: 1px solid var(--border); color: var(--text2); }
+.btn-outline:hover { background: var(--surface2); }
+.btn-danger  { background: none; border: 1px solid var(--warn); color: var(--warn); }
+
+/* ── 토스트 ── */
+.toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--text); color: #fff; font-family: var(--mono); font-size: 12px;
+  padding: 10px 20px; border-radius: 20px; opacity: 0; transition: opacity 0.2s, transform 0.2s;
+  z-index: 999; pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ════════════════════════════
+   TAB A: 원가 계산기
+════════════════════════════ */
+.search-row { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; }
+.search-input { flex: 1; max-width: 300px; }
+
+.product-grid { display: flex; flex-direction: column; gap: 10px; }
+.product-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: box-shadow 0.15s; }
+.product-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+
+.card-header { padding: 14px 20px; display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none; }
+.card-name { font-weight: 500; font-size: 14px; flex: 1; }
+.card-totals { display: flex; gap: 20px; align-items: center; }
+.card-total-item { text-align: right; }
+.card-total-label { font-size: 10px; font-family: var(--mono); color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
+.card-total-val { font-family: var(--mono); font-size: 14px; font-weight: 500; }
+.card-chevron { font-size: 12px; color: var(--text3); transition: transform 0.2s; margin-left: 8px; }
+.card-chevron.open { transform: rotate(180deg); }
+
+.card-body { display: none; border-top: 1px solid var(--border); padding: 20px; }
+.card-body.open { display: block; }
+
+.cost-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 16px; }
+.sec-title { font-size: 10px; font-family: var(--mono); color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.cost-fields { display: flex; flex-direction: column; gap: 8px; }
+.cost-row { display: flex; align-items: center; gap: 8px; }
+.cost-row label { font-size: 12px; color: var(--text2); flex: 1; min-width: 0; }
+.cost-row input[type=number] { width: 100px; text-align: right; padding: 5px 8px; font-size: 12px; }
+.cost-row input[type=text]   { width: 140px; padding: 5px 8px; font-size: 12px; font-family: var(--sans); }
+.unit { font-size: 11px; color: var(--text3); font-family: var(--mono); min-width: 28px; }
+
+.card-summary { background: var(--surface2); border-radius: 8px; padding: 14px 16px; display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-top: 16px; }
+.s-label { font-size: 10px; font-family: var(--mono); color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+.s-val { font-family: var(--mono); font-size: 15px; font-weight: 500; }
+.s-val.accent { color: var(--accent); }
+
+.card-actions { display: flex; gap: 8px; margin-top: 14px; }
+
+/* 신규 원가 */
+.new-calc { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+.calc-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; margin-bottom: 20px; }
+.calc-result { background: var(--accent); border-radius: 10px; padding: 18px 22px; display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+.r-label { font-size: 10px; font-family: var(--mono); color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.r-val { font-family: var(--mono); font-size: 18px; font-weight: 500; color: #fff; }
+.calc-name-row { margin-bottom: 20px; }
+.calc-name-row label { font-size: 11px; font-family: var(--mono); color: var(--text3); letter-spacing: 0.06em; display: block; margin-bottom: 5px; }
+.calc-name-row input { width: 100%; max-width: 360px; font-size: 14px; font-family: var(--sans); font-weight: 500; }
+
+/* sub-tabs (원가 내 탭) */
+.sub-tabs { display: flex; gap: 0; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; width: fit-content; }
+.sub-tab { font-family: var(--mono); font-size: 12px; padding: 8px 18px; cursor: pointer; background: none; border: none; color: var(--text3); transition: background 0.15s, color 0.15s; }
+.sub-tab.active { background: var(--accent); color: #fff; }
+.sub-page { display: none; }
+.sub-page.active { display: block; }
+
+/* ════════════════════════════
+   TAB B: 가격 계산기
+════════════════════════════ */
+.settings-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 20px; margin-bottom: 24px; }
+.setting-group label { display: block; font-size: 11px; font-family: var(--mono); color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }
+.setting-group input { width: 100%; }
+.setting-hint { font-size: 11px; color: var(--text3); margin-top: 4px; font-family: var(--mono); }
+
+.warn-banner { background: var(--warn-light); border: 1px solid #F0C5A8; border-radius: 8px; padding: 10px 16px; font-size: 12px; color: var(--warn); font-family: var(--mono); margin-bottom: 16px; display: none; }
+.warn-banner.visible { display: block; }
+
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+.table-header { padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.table-title { font-size: 12px; font-family: var(--mono); color: var(--text2); letter-spacing: 0.06em; text-transform: uppercase; }
+.cat-badge { font-size: 11px; font-family: var(--mono); padding: 3px 10px; border-radius: 20px; font-weight: 500; }
+.cat-single { background: #EEF0FB; color: #3B4DB5; }
+.cat-set    { background: #FDF0E8; color: #C4622A; }
+.cat-settop { background: #E8F2EE; color: #2D5F4F; }
+.cat-outer  { background: #F5F0FB; color: #6B3FAF; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { background: var(--surface2); padding: 8px 14px; text-align: left; font-size: 11px; font-family: var(--mono); color: var(--text3); letter-spacing: 0.06em; font-weight: 500; border-bottom: 1px solid var(--border); white-space: nowrap; }
+thead th.right { text-align: right; }
+tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--surface2); }
+td { padding: 10px 14px; vertical-align: middle; }
+td.right { text-align: right; font-family: var(--mono); font-size: 13px; }
+td.pname { font-weight: 500; }
+.margin-pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-family: var(--mono); font-size: 12px; font-weight: 500; }
+.margin-ok   { background: var(--accent-light); color: var(--accent); }
+.margin-warn { background: var(--warn-light); color: var(--warn); }
+
+.add-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 22px; margin-bottom: 24px; }
+.add-section-title { font-size: 11px; font-family: var(--mono); color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px; }
+.add-form { display: grid; grid-template-columns: 2fr 1.2fr 1fr 1fr auto; gap: 10px; align-items: end; }
+.form-field label { display: block; font-size: 11px; font-family: var(--mono); color: var(--text3); letter-spacing: 0.06em; margin-bottom: 5px; }
+.form-field input, .form-field select { width: 100%; }
+.btn-del { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 16px; padding: 4px 6px; border-radius: 4px; transition: color 0.15s, background 0.15s; line-height: 1; }
+.btn-del:hover { color: var(--warn); background: var(--warn-light); }
+.export-row { display: flex; gap: 10px; }
+
+/* ── KC 인증 카드 ── */
+.kc-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: box-shadow 0.15s; }
+.kc-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.kc-card-header { padding: 14px 20px; display: flex; align-items: center; gap: 12px; cursor: pointer; user-select: none; }
+.kc-fabric-name { font-weight: 500; font-size: 15px; flex: 1; }
+.kc-header-meta { display: flex; gap: 16px; align-items: center; }
+.kc-certno { font-family: var(--mono); font-size: 12px; color: var(--text2); }
+.kc-status-badge { font-size: 11px; font-family: var(--mono); font-weight: 500; padding: 3px 10px; border-radius: 10px; white-space: nowrap; }
+.kc-status-완료   { background: var(--accent-light); color: var(--accent); }
+.kc-status-진행중 { background: #F0EDFB; color: #6B3FAF; }
+.kc-status-예정   { background: #EEF0FB; color: #3B4DB5; }
+.kc-status-만료   { background: var(--surface2); color: var(--text3); }
+.kc-expiry-near   { background: var(--warn-light); color: var(--warn); }
+
+.kc-body { display: none; border-top: 1px solid var(--border); padding: 20px; }
+.kc-body.open { display: block; }
+.kc-detail-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 16px; }
+.kc-detail-item .kd-label { font-size: 10px; font-family: var(--mono); color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+.kc-detail-item .kd-val { font-size: 14px; font-weight: 500; }
+.kc-detail-item .kd-val.mono { font-family: var(--mono); }
+
+.kc-products-section { margin-bottom: 14px; }
+.kc-products-label { font-size: 10px; font-family: var(--mono); color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+.kc-product-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.kc-product-tag { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: var(--text2); }
+
+.kc-note-box { background: var(--surface2); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: var(--text2); margin-bottom: 14px; display: none; }
+.kc-note-box.visible { display: block; }
+.kc-card-actions { display: flex; gap: 8px; }
+
+/* ── KC 모달 overlay 활성 ── */
+#kc-modal-overlay.open { display: flex !important; }
+
+/* ── 라벨링 탭 ── */
+.lb-guide-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 24px 28px; margin-bottom: 24px;
+}
+.lb-guide-title {
+  font-size: 15px; font-weight: 500; margin-bottom: 20px; color: var(--text);
+}
+.lb-code-example {
+  background: var(--surface2); border-radius: 10px; padding: 20px 24px;
+  margin-bottom: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px;
+}
+.lb-code-display {
+  font-family: var(--mono); font-size: 28px; font-weight: 500;
+  letter-spacing: 0.12em; color: var(--text);
+}
+.lb-code-parts {
+  display: flex; align-items: flex-start; gap: 6px; flex-wrap: wrap; justify-content: center;
+}
+.lb-part { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 90px; }
+.lb-part-val {
+  font-family: var(--mono); font-size: 16px; font-weight: 500;
+  padding: 6px 14px; border-radius: 8px; letter-spacing: 0.06em;
+}
+.lb-part-arrow { font-size: 14px; color: var(--text3); }
+.lb-part-label { font-size: 12px; color: var(--text2); text-align: center; line-height: 1.5; }
+.lb-part-label span { font-size: 11px; color: var(--text3); }
+.lb-part-sep { font-family: var(--mono); font-size: 22px; color: var(--text3); margin-top: 8px; }
+
+.lb-legend-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+.lb-legend-section {}
+.lb-legend-title { font-size: 11px; font-family: var(--mono); color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+.lb-legend-items { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lb-chip { font-family: var(--mono); font-size: 12px; font-weight: 500; padding: 3px 9px; border-radius: 6px; }
+.lb-chip-label { font-size: 12px; color: var(--text2); margin-right: 6px; }
+
+/* 라벨 테이블 */
+.lb-code-cell {
+  font-family: var(--mono); font-size: 13px; font-weight: 500;
+  color: var(--accent); cursor: pointer;
+}
+.lb-code-cell:hover { text-decoration: underline; }
+.lb-cat-chip { font-size: 11px; font-family: var(--mono); font-weight: 500; padding: 2px 8px; border-radius: 6px; }
+.lb-season-chip { font-size: 11px; font-family: var(--mono); padding: 2px 8px; border-radius: 6px; background: #EEF0FB; color: #3B4DB5; }
+.lb-color-chip  { font-size: 11px; font-family: var(--mono); padding: 2px 8px; border-radius: 6px; background: #F5F0FB; color: #6B3FAF; }
+.lb-edit-input { width: 100%; background: var(--surface2); border: 1px solid var(--accent); border-radius: 4px; padding: 3px 6px; font-family: var(--sans); font-size: 13px; outline: none; }
+
+/* ── 반응형 ── */
+@media (max-width: 768px) {
+  .stat-row { grid-template-columns: repeat(2,1fr); }
+  .cost-grid, .calc-grid { grid-template-columns: 1fr; }
+  .calc-result, .card-summary { grid-template-columns: repeat(2,1fr); }
+  .add-form { grid-template-columns: 1fr 1fr; }
+  .card-totals { display: none; }
+  main { padding: 16px 14px 60px; }
+  header, .tab-bar { padding-left: 16px; padding-right: 16px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">nu<span>mo</span></div>
+  <div class="header-meta" id="today-label"></div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab active" onclick="switchTab('cost')">원가 계산기</button>
+  <button class="tab" onclick="switchTab('pricing')">가격 계산기</button>
+  <button class="tab" onclick="switchTab('kc')">KC 인증 관리</button>
+  <button class="tab" onclick="switchTab('label')">제품 라벨링</button>
+</div>
+
+<main>
+
+<!-- ══════════════════════════════
+     TAB A: 원가 계산기
+══════════════════════════════ -->
+<div class="page active" id="tab-cost">
+  <div class="stat-row">
+    <div class="stat-card"><div class="stat-label">총 제품 수</div><div class="stat-value" id="c-count">0</div></div>
+    <div class="stat-card"><div class="stat-label">평균 총원가</div><div class="stat-value" id="c-avg">—</div></div>
+    <div class="stat-card"><div class="stat-label">최저 원가</div><div class="stat-value" id="c-min">—</div></div>
+    <div class="stat-card"><div class="stat-label">최고 원가</div><div class="stat-value" id="c-max">—</div></div>
+  </div>
+
+  <div class="sub-tabs">
+    <button class="sub-tab active" onclick="switchSub('list')">제품 목록 · 편집</button>
+    <button class="sub-tab" onclick="switchSub('new')">신규 원가 산출</button>
+  </div>
+
+  <!-- 목록 -->
+  <div class="sub-page active" id="sub-list">
+    <div class="search-row">
+      <input class="search-input" id="search-input" placeholder="제품명 검색..." oninput="renderCost()">
+      <select id="sort-select" onchange="renderCost()" style="font-size:12px">
+        <option value="name">이름순</option>
+        <option value="asc">원가 낮은순</option>
+        <option value="desc">원가 높은순</option>
+      </select>
+    </div>
+    <div class="product-grid" id="product-grid"></div>
+  </div>
+
+  <!-- 신규 -->
+  <div class="sub-page" id="sub-new">
+    <div class="new-calc">
+      <div class="calc-name-row">
+        <label>제품명</label>
+        <input type="text" id="n-name" placeholder="예: 26년 뉴봄세트">
+      </div>
+      <div class="calc-grid">
+        <div>
+          <div class="sec-title">메인원단</div>
+          <div class="cost-fields">
+            <div class="cost-row"><label>원단 단가</label><input type="number" id="n-main-price" value="0" min="0" oninput="calcNew()"><span class="unit">원/yd</span></div>
+            <div class="cost-row"><label>사용 야드</label><input type="number" id="n-main-yard" value="0" step="0.01" min="0" oninput="calcNew()"><span class="unit">yd</span></div>
+            <div class="cost-row" style="margin-top:4px;padding-top:8px;border-top:1px solid var(--border)">
+              <label style="font-weight:500">메인원단 비용</label>
+              <input type="text" id="n-main-total" readonly style="background:var(--surface);border-color:transparent;font-weight:500;color:var(--accent);width:100px;text-align:right">
+              <span class="unit">원</span>
+            </div>
+            <div class="sec-title" style="margin-top:14px">서브원단</div>
+            <div class="cost-row"><label>원단 단가</label><input type="number" id="n-sub-price" value="0" min="0" oninput="calcNew()"><span class="unit">원/yd</span></div>
+            <div class="cost-row"><label>사용 야드</label><input type="number" id="n-sub-yard" value="0" step="0.01" min="0" oninput="calcNew()"><span class="unit">yd</span></div>
+            <div class="cost-row" style="margin-top:4px;padding-top:8px;border-top:1px solid var(--border)">
+              <label style="font-weight:500">서브원단 비용</label>
+              <input type="text" id="n-sub-total" readonly style="background:var(--surface);border-color:transparent;font-weight:500;color:var(--accent);width:100px;text-align:right">
+              <span class="unit">원</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="sec-title">부자재</div>
+          <div class="cost-fields">
+            <div class="cost-row"><label>스냅·단추·지퍼</label><input type="number" id="n-snap" value="0" min="0" oninput="calcNew()"><span class="unit">원</span></div>
+            <div class="cost-row"><label>라벨 측면</label><input type="number" id="n-label-side" value="38" min="0" oninput="calcNew()"><span class="unit">원</span></div>
+            <div class="cost-row"><label>라벨 후면</label><input type="number" id="n-label-back" value="52" min="0" oninput="calcNew()"><span class="unit">원</span></div>
+            <div class="cost-row"><label>라벨 케어</label><input type="number" id="n-label-care" value="38" min="0" oninput="calcNew()"><span class="unit">원</span></div>
+            <div class="cost-row"><label>와펜</label><input type="number" id="n-wapen" value="500" min="0" oninput="calcNew()"><span class="unit">원</span></div>
+            <div class="cost-row"><label>폴리백</label><input type="number" id="n-poly" value="78" min="0" oninput="calcNew()"><span class="unit">원</span></div>
+            <div class="cost-row"><label>완성비</label><input type="number" id="n-finish" value="900" min="0" oninput="calcNew()"><span class="unit">원</span></div>
+            <div class="cost-row"><label>택</label><input type="number" id="n-tag" value="118" min="0" oninput="calcNew()"><span class="unit">원</span></div>
+            <div class="cost-row"><label>고무줄</label><input type="number" id="n-elastic" value="0" min="0" oninput="calcNew()"><span class="unit">원</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="sec-title">공임</div>
+          <div class="cost-fields">
+            <div class="cost-row"><label>기본 공임</label><input type="number" id="n-labor" value="0" min="0" oninput="calcNew()"><span class="unit">원</span></div>
+            <div class="cost-row"><label>단추·스냅 작업비</label><input type="number" id="n-labor-snap" value="0" min="0" oninput="calcNew()"><span class="unit">원</span></div>
+          </div>
+          <div class="sec-title" style="margin-top:14px">기타</div>
+          <div class="cost-fields">
+            <div class="cost-row"><label>기타 비용</label><input type="number" id="n-misc" value="0" min="0" oninput="calcNew()"><span class="unit">원</span></div>
+            <div class="cost-row"><label>비고</label><input type="text" id="n-note" placeholder="메모" style="width:140px;font-family:var(--sans)"></div>
+          </div>
+        </div>
+      </div>
+      <div class="calc-result">
+        <div><div class="r-label">원단비 합계</div><div class="r-val" id="r-fabric">₩0</div></div>
+        <div><div class="r-label">부자재 합계</div><div class="r-val" id="r-material">₩0</div></div>
+        <div><div class="r-label">공임 합계</div><div class="r-val" id="r-labor">₩0</div></div>
+        <div><div class="r-label">총 원가</div><div class="r-val" id="r-total" style="font-size:22px">₩0</div></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="btn btn-primary" onclick="saveNew()">제품 목록에 저장</button>
+        <button class="btn btn-outline" onclick="resetNew()">초기화</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     TAB B: 가격 계산기
+══════════════════════════════ -->
+<div class="page" id="tab-pricing">
+  <div class="settings-bar">
+    <div class="setting-group">
+      <label>환율 (KRW/USD)</label>
+      <input type="number" id="p-exrate" value="1400" step="10" min="1000" max="2000" oninput="renderPricing()">
+      <div class="setting-hint" id="p-rate-hint">기준: 1,400 KRW</div>
+    </div>
+    <div class="setting-group">
+      <label>FOB 배수</label>
+      <input type="number" id="p-fob" value="1.15" step="0.05" min="1.0" max="2.0" oninput="renderPricing()">
+      <div class="setting-hint">물류·인증 비용 포함</div>
+    </div>
+    <div class="setting-group">
+      <label>Wholesale 배수</label>
+      <input type="number" id="p-ws" value="2.4" step="0.1" min="1.5" max="4.0" oninput="renderPricing()">
+      <div class="setting-hint">FOB × 배수</div>
+    </div>
+    <div class="setting-group">
+      <label>마진 경고 기준 (%)</label>
+      <input type="number" id="p-threshold" value="40" step="1" min="10" max="80" oninput="renderPricing()">
+      <div class="setting-hint">브랜드 마진 하한선</div>
+    </div>
+  </div>
+
+  <div id="p-warn-banner" class="warn-banner">⚠ 마진 경고 제품이 있어요. 아래 테이블에서 주황색 항목을 확인하세요.</div>
+
+  <div class="stat-row">
+    <div class="stat-card"><div class="stat-label">총 제품 수</div><div class="stat-value" id="p-total">0</div></div>
+    <div class="stat-card"><div class="stat-label">평균 브랜드 마진</div><div class="stat-value" id="p-avgmargin">—</div></div>
+    <div class="stat-card"><div class="stat-label">마진 경고</div><div class="stat-value warn" id="p-warncount">0</div></div>
+    <div class="stat-card"><div class="stat-label">평균 MSRP (USD)</div><div class="stat-value" id="p-avgmsrp">—</div></div>
+  </div>
+
+  <div id="p-tables"></div>
+
+  <div class="add-section">
+    <div class="add-section-title">제품 추가</div>
+    <div class="add-form">
+      <div class="form-field"><label>제품명</label><input type="text" id="pf-name" placeholder="예: Numo Basic Tee"></div>
+      <div class="form-field"><label>원가 (KRW)</label><input type="number" id="pf-krw" placeholder="8500" min="0" step="100"></div>
+      <div class="form-field">
+        <label>카테고리</label>
+        <select id="pf-cat" onchange="pfCatChange()">
+          <option value="single">Single item</option>
+          <option value="set">Set item</option>
+          <option value="settop">Set top</option>
+          <option value="outer">Outerwear</option>
+        </select>
+      </div>
+      <div class="form-field"><label>MSRP 배수</label><input type="number" id="pf-msrpmult" value="2.4" step="0.1" min="1.5" max="5.0"></div>
+      <div class="form-field"><label>&nbsp;</label><button class="btn btn-primary" onclick="addPricingProduct()" style="height:36px;width:100%">+ 추가</button></div>
+    </div>
+  </div>
+
+  <div class="export-row">
+    <button class="btn btn-outline" onclick="exportCSV()">CSV 다운로드</button>
+    <button class="btn btn-outline" onclick="copyTable()">텍스트 복사</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     TAB C: KC 인증 관리
+══════════════════════════════ -->
+<div class="page" id="tab-kc">
+
+  <div class="stat-row">
+    <div class="stat-card"><div class="stat-label">원단 그룹 수</div><div class="stat-value" id="kc-s-groups">0</div></div>
+    <div class="stat-card"><div class="stat-label">인증 완료</div><div class="stat-value ok" id="kc-s-done">0</div></div>
+    <div class="stat-card"><div class="stat-label">진행 중</div><div class="stat-value" style="color:#6B3FAF" id="kc-s-progress">0</div></div>
+    <div class="stat-card"><div class="stat-label">만료 임박 (90일)</div><div class="stat-value warn" id="kc-s-expiring">0</div></div>
+  </div>
+
+  <div id="kc-expiry-banner" class="warn-banner"></div>
+
+  <!-- 필터 + 추가 버튼 -->
+  <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
+    <input class="search-input" id="kc-search" placeholder="원단명·인증번호 검색..." oninput="renderKC()" style="max-width:260px">
+    <select id="kc-filter-status" onchange="renderKC()" style="font-size:12px">
+      <option value="all">전체 상태</option>
+      <option value="완료">완료</option>
+      <option value="진행중">진행 중</option>
+      <option value="예정">예정</option>
+      <option value="만료">만료</option>
+    </select>
+    <select id="kc-filter-fabric" onchange="renderKC()" style="font-size:12px">
+      <option value="all">전체 원단</option>
+    </select>
+    <button class="btn btn-primary" onclick="openKCModal()" style="margin-left:auto">+ 그룹 추가</button>
+  </div>
+
+  <div id="kc-grid" style="display:flex;flex-direction:column;gap:12px"></div>
+</div>
+
+<!-- ══════════════════════════════
+     TAB D: 제품 라벨링
+══════════════════════════════ -->
+<div class="page" id="tab-label">
+
+  <!-- 코드 읽는 법 안내판 -->
+  <div class="lb-guide-box">
+    <div class="lb-guide-title">📌 numo 제품 코드 읽는 법</div>
+    <div class="lb-code-example">
+      <div class="lb-code-display" id="lb-example-code">NM-26S-TOP-ST01</div>
+      <div class="lb-code-parts">
+        <div class="lb-part">
+          <div class="lb-part-val" style="background:#E8F2EE;color:#2D5F4F">NM</div>
+          <div class="lb-part-arrow">↓</div>
+          <div class="lb-part-label">브랜드<br><span>항상 NM</span></div>
+        </div>
+        <div class="lb-part-sep">-</div>
+        <div class="lb-part">
+          <div class="lb-part-val" style="background:#EEF0FB;color:#3B4DB5" id="lb-ex-season">26S</div>
+          <div class="lb-part-arrow">↓</div>
+          <div class="lb-part-label">시즌<br><span>26S=2026봄여름<br>26F=2026가을겨울</span></div>
+        </div>
+        <div class="lb-part-sep">-</div>
+        <div class="lb-part">
+          <div class="lb-part-val" style="background:#FDF0E8;color:#C4622A" id="lb-ex-cat">TOP</div>
+          <div class="lb-part-arrow">↓</div>
+          <div class="lb-part-label">카테고리<br><span>TOP·BOT·SET<br>OTR·ACC</span></div>
+        </div>
+        <div class="lb-part-sep">-</div>
+        <div class="lb-part">
+          <div class="lb-part-val" style="background:#F5F0FB;color:#6B3FAF" id="lb-ex-color">ST01</div>
+          <div class="lb-part-arrow">↓</div>
+          <div class="lb-part-label">색상+번호<br><span>ST=스트라이프<br>SD=단색 등</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 범례 -->
+    <div class="lb-legend-row">
+      <div class="lb-legend-section">
+        <div class="lb-legend-title">시즌</div>
+        <div class="lb-legend-items">
+          <span class="lb-chip" style="background:#EEF0FB;color:#3B4DB5">26S</span><span class="lb-chip-label">2026 봄·여름</span>
+          <span class="lb-chip" style="background:#EEF0FB;color:#3B4DB5">26F</span><span class="lb-chip-label">2026 가을·겨울</span>
+          <span class="lb-chip" style="background:#EEF0FB;color:#3B4DB5">27S</span><span class="lb-chip-label">2027 봄·여름</span>
+        </div>
+      </div>
+      <div class="lb-legend-section">
+        <div class="lb-legend-title">카테고리</div>
+        <div class="lb-legend-items">
+          <span class="lb-chip" style="background:#FDF0E8;color:#C4622A">TOP</span><span class="lb-chip-label">상의</span>
+          <span class="lb-chip" style="background:#FDF0E8;color:#C4622A">BOT</span><span class="lb-chip-label">하의</span>
+          <span class="lb-chip" style="background:#FDF0E8;color:#C4622A">SET</span><span class="lb-chip-label">세트</span>
+          <span class="lb-chip" style="background:#FDF0E8;color:#C4622A">OTR</span><span class="lb-chip-label">아우터</span>
+          <span class="lb-chip" style="background:#FDF0E8;color:#C4622A">ACC</span><span class="lb-chip-label">액세서리</span>
+        </div>
+      </div>
+      <div class="lb-legend-section">
+        <div class="lb-legend-title">색상 코드</div>
+        <div class="lb-legend-items">
+          <span class="lb-chip" style="background:#F5F0FB;color:#6B3FAF">SD</span><span class="lb-chip-label">단색 Solid</span>
+          <span class="lb-chip" style="background:#F5F0FB;color:#6B3FAF">ST</span><span class="lb-chip-label">스트라이프 Stripe</span>
+          <span class="lb-chip" style="background:#F5F0FB;color:#6B3FAF">FL</span><span class="lb-chip-label">플라워 Floral</span>
+          <span class="lb-chip" style="background:#F5F0FB;color:#6B3FAF">CH</span><span class="lb-chip-label">체크 Check</span>
+          <span class="lb-chip" style="background:#F5F0FB;color:#6B3FAF">MX</span><span class="lb-chip-label">믹스 Mixed</span>
+          <span class="lb-chip" style="background:#F5F0FB;color:#6B3FAF">EM</span><span class="lb-chip-label">자수 Embroidery</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 검색·필터 -->
+  <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
+    <input class="search-input" id="lb-search" placeholder="제품명·코드 검색..." oninput="renderLabels()" style="max-width:260px">
+    <select id="lb-filter-season" onchange="renderLabels()" style="font-size:12px">
+      <option value="all">전체 시즌</option>
+      <option value="26S">26S</option>
+      <option value="26F">26F</option>
+    </select>
+    <select id="lb-filter-cat" onchange="renderLabels()" style="font-size:12px">
+      <option value="all">전체 카테고리</option>
+      <option value="TOP">TOP 상의</option>
+      <option value="BOT">BOT 하의</option>
+      <option value="SET">SET 세트</option>
+      <option value="OTR">OTR 아우터</option>
+      <option value="ACC">ACC 액세서리</option>
+    </select>
+    <div style="margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--text3)" id="lb-count-label"></div>
+  </div>
+
+  <!-- 제품 테이블 -->
+  <div class="table-wrap" style="margin-bottom:20px">
+    <div class="table-header" style="justify-content:space-between">
+      <span class="table-title">제품 코드 목록</span>
+      <button class="btn btn-outline" onclick="exportLabelCSV()" style="font-size:11px;padding:5px 12px">CSV 다운로드</button>
+    </div>
+    <table id="lb-table">
+      <thead>
+        <tr>
+          <th style="width:160px">제품 코드</th>
+          <th>한국어 제품명</th>
+          <th>영문 제품명</th>
+          <th style="width:70px;text-align:center">시즌</th>
+          <th style="width:70px;text-align:center">카테고리</th>
+          <th style="width:70px;text-align:center">색상</th>
+          <th style="width:60px"></th>
+        </tr>
+      </thead>
+      <tbody id="lb-tbody"></tbody>
+    </table>
+  </div>
+
+</div>
+<div id="kc-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:200;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto">
+  <div style="background:var(--surface);border-radius:14px;border:1px solid var(--border);width:100%;max-width:640px;padding:28px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <span style="font-family:var(--mono);font-size:12px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase" id="kc-modal-title">신규 원단 그룹</span>
+      <button onclick="closeKCModal()" style="background:none;border:none;font-size:20px;color:var(--text3);cursor:pointer;line-height:1">×</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+      <div>
+        <label style="font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;display:block;margin-bottom:5px">원단명 *</label>
+        <input type="text" id="km-fabric" placeholder="예: 100% 면 스트라이프" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;display:block;margin-bottom:5px">원단 조성</label>
+        <input type="text" id="km-composition" placeholder="예: 면 100%, 면95% 스판5%" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;display:block;margin-bottom:5px">인증번호</label>
+        <input type="text" id="km-certno" placeholder="예: KC-2024-0312-001" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;display:block;margin-bottom:5px">상태</label>
+        <select id="km-status" style="width:100%">
+          <option value="완료">완료</option>
+          <option value="진행중">진행 중</option>
+          <option value="예정">예정</option>
+          <option value="만료">만료</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;display:block;margin-bottom:5px">인증 취득일</label>
+        <input type="date" id="km-issued" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;display:block;margin-bottom:5px">만료일</label>
+        <input type="date" id="km-expiry" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;display:block;margin-bottom:5px">시험 기관</label>
+        <input type="text" id="km-agency" placeholder="예: KTL, KOTITI, FITI" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;display:block;margin-bottom:5px">시험 비용 (원)</label>
+        <input type="number" id="km-cost" placeholder="0" min="0" style="width:100%">
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;display:block;margin-bottom:5px">연결 제품 (쉼표로 구분)</label>
+      <input type="text" id="km-products" placeholder="예: 7부어깨트임, 꽃쉐리, 클래식핏" style="width:100%">
+    </div>
+
+    <div style="margin-bottom:20px">
+      <label style="font-size:11px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;display:block;margin-bottom:5px">메모</label>
+      <textarea id="km-note" placeholder="추가 메모..." rows="2" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-family:var(--sans);font-size:13px;color:var(--text);outline:none;resize:vertical"></textarea>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeKCModal()">취소</button>
+      <button class="btn btn-primary" onclick="saveKCGroup()">저장</button>
+    </div>
+  </div>
+</div>
+
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════
+// 공통 유틸
+// ════════════════════════════
+function fmtW(n)   { return '₩' + Math.round(n).toLocaleString('ko-KR'); }
+function fmtKRW(n) { return Number(n).toLocaleString('ko-KR'); }
+function gv(id)    { return parseFloat(document.getElementById(id)?.value) || 0; }
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+function switchTab(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  const idx = {cost:0, pricing:1, kc:2, label:3}[tab] ?? 0;
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+}
+
+// ════════════════════════════
+// 제품 라벨링
+// ════════════════════════════
+const LB_CATS = {
+  TOP: { label:'TOP', desc:'상의',     bg:'#FDF0E8', color:'#C4622A' },
+  BOT: { label:'BOT', desc:'하의',     bg:'#FDF0E8', color:'#C4622A' },
+  SET: { label:'SET', desc:'세트',     bg:'#E8F2EE', color:'#2D5F4F' },
+  OTR: { label:'OTR', desc:'아우터',   bg:'#F5F0FB', color:'#6B3FAF' },
+  ACC: { label:'ACC', desc:'액세서리', bg:'#EEF0FB', color:'#3B4DB5' },
+};
+const LB_COLORS = {
+  SD:'단색', ST:'스트라이프', FL:'플라워', CH:'체크', MX:'믹스', EM:'자수'
+};
+
+let labelProducts = [
+  { id:1,  code:'NM-26S-TOP-SD01', nameKo:'7부 어깨트임',          nameEn:'Shoulder Slit 3/4 Top',   season:'26S', cat:'TOP', color:'SD' },
+  { id:2,  code:'NM-26S-BOT-SD01', nameKo:'골지 조거 바지',         nameEn:'Rib Jogger Pants',         season:'26S', cat:'BOT', color:'SD' },
+  { id:3,  code:'NM-26S-TOP-FL01', nameKo:'꽃쉐리',                 nameEn:'Floral Cherie Top',        season:'26S', cat:'TOP', color:'FL' },
+  { id:4,  code:'NM-26S-SET-MX01', nameKo:'뉴리틀팔레트 세트',      nameEn:'New Little Palette Set',   season:'26S', cat:'SET', color:'MX' },
+  { id:5,  code:'NM-26S-TOP-MX01', nameKo:'배색 시보리',            nameEn:'Color Block Rib Top',      season:'26S', cat:'TOP', color:'MX' },
+  { id:6,  code:'NM-26S-ACC-SD01', nameKo:'볼캡 (루즈핏)',          nameEn:'Ball Cap Loose Fit',       season:'26S', cat:'ACC', color:'SD' },
+  { id:7,  code:'NM-26S-SET-ST01', nameKo:'스트라이프 가디건 세트', nameEn:'Stripe Cardigan Set',      season:'26S', cat:'SET', color:'ST' },
+  { id:8,  code:'NM-26S-ACC-ST01', nameKo:'스트라이프 귀보넷',      nameEn:'Stripe Bonnet',            season:'26S', cat:'ACC', color:'ST' },
+  { id:9,  code:'NM-26S-TOP-ST01', nameKo:'스트라이프 바디수트',    nameEn:'Stripe Bodysuit',          season:'26S', cat:'TOP', color:'ST' },
+  { id:10, code:'NM-26S-SET-ST02', nameKo:'스트라이프 카라 세트',   nameEn:'Stripe Collar Set',        season:'26S', cat:'SET', color:'ST' },
+  { id:11, code:'NM-26S-TOP-ST02', nameKo:'클래식핏 (스트라이프)',  nameEn:'Classic Fit Stripe Top',   season:'26S', cat:'TOP', color:'ST' },
+  { id:12, code:'NM-26S-TOP-SD02', nameKo:'클래식핏 (메란지그레이)',nameEn:'Classic Fit Melange Top',  season:'26S', cat:'TOP', color:'SD' },
+  { id:13, code:'NM-26S-TOP-SD03', nameKo:'클래식핏 (앞트임·셔링)',nameEn:'Classic Fit Shirring Top', season:'26S', cat:'TOP', color:'SD' },
+  { id:14, code:'NM-26S-TOP-SD04', nameKo:'클래식핏 (앞트임·랍바)',nameEn:'Classic Fit Ruffle Top',   season:'26S', cat:'TOP', color:'SD' },
+  { id:15, code:'NM-26S-OTR-MX01', nameKo:'후드점퍼',              nameEn:'Hoodie Jumper',            season:'26S', cat:'OTR', color:'MX' },
+];
+let lbNextId = 16;
+let lbEditingId = null;
+
+function renderLabels() {
+  const q    = (document.getElementById('lb-search')?.value||'').toLowerCase();
+  const fSea = document.getElementById('lb-filter-season')?.value||'all';
+  const fCat = document.getElementById('lb-filter-cat')?.value||'all';
+
+  const list = labelProducts.filter(p => {
+    const matchQ = p.code.toLowerCase().includes(q) || p.nameKo.includes(q) || p.nameEn.toLowerCase().includes(q);
+    const matchS = fSea==='all' || p.season===fSea;
+    const matchC = fCat==='all' || p.cat===fCat;
+    return matchQ && matchS && matchC;
+  });
+
+  document.getElementById('lb-count-label').textContent = `${list.length}개 표시 중 / 전체 ${labelProducts.length}개`;
+
+  const tbody = document.getElementById('lb-tbody');
+  tbody.innerHTML = '';
+
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3);font-family:var(--mono);font-size:13px">검색 결과가 없어요</td></tr>';
+    return;
+  }
+
+  // 카테고리 순 정렬
+  const catOrder = {TOP:0,BOT:1,SET:2,OTR:3,ACC:4};
+  list.sort((a,b) => (catOrder[a.cat]??9)-(catOrder[b.cat]??9) || a.code.localeCompare(b.code));
+
+  list.forEach(p => {
+    const ci = LB_CATS[p.cat];
+    const isEditing = lbEditingId === p.id;
+    const tr = document.createElement('tr');
+    if (isEditing) {
+      tr.innerHTML = `
+        <td><span class="lb-code-cell">${p.code}</span></td>
+        <td><input class="lb-edit-input" id="lbe-nameko" value="${p.nameKo}" style="margin-bottom:4px"></td>
+        <td><input class="lb-edit-input" id="lbe-nameen" value="${p.nameEn}"></td>
+        <td style="text-align:center">
+          <select id="lbe-season" style="font-size:12px;padding:3px 6px;font-family:var(--mono)">
+            <option ${p.season==='26S'?'selected':''}>26S</option>
+            <option ${p.season==='26F'?'selected':''}>26F</option>
+            <option ${p.season==='27S'?'selected':''}>27S</option>
+          </select>
+        </td>
+        <td style="text-align:center">
+          <select id="lbe-cat" style="font-size:12px;padding:3px 6px;font-family:var(--mono)">
+            ${Object.keys(LB_CATS).map(k=>`<option value="${k}" ${p.cat===k?'selected':''}>${k}</option>`).join('')}
+          </select>
+        </td>
+        <td style="text-align:center">
+          <select id="lbe-color" style="font-size:12px;padding:3px 6px;font-family:var(--mono)">
+            ${Object.keys(LB_COLORS).map(k=>`<option value="${k}" ${p.color===k?'selected':''}>${k}</option>`).join('')}
+          </select>
+        </td>
+        <td style="text-align:center;white-space:nowrap">
+          <button class="btn btn-primary" onclick="saveLbEdit(${p.id})" style="font-size:11px;padding:4px 10px;margin-right:4px">저장</button>
+          <button class="btn btn-outline" onclick="cancelLbEdit()" style="font-size:11px;padding:4px 8px">취소</button>
+        </td>`;
+    } else {
+      tr.innerHTML = `
+        <td class="lb-code-cell" onclick="previewCode('${p.code}')" title="코드 미리보기">${p.code}</td>
+        <td style="font-weight:500">${p.nameKo}</td>
+        <td style="color:var(--text2)">${p.nameEn}</td>
+        <td style="text-align:center"><span class="lb-season-chip">${p.season}</span></td>
+        <td style="text-align:center"><span class="lb-cat-chip" style="background:${ci.bg};color:${ci.color}">${ci.label} ${ci.desc}</span></td>
+        <td style="text-align:center"><span class="lb-color-chip">${p.color} <span style="font-size:11px;opacity:0.7">${LB_COLORS[p.color]||''}</span></span></td>
+        <td style="text-align:center;white-space:nowrap">
+          <button class="btn btn-outline" onclick="startLbEdit(${p.id})" style="font-size:11px;padding:4px 10px;margin-right:4px">편집</button>
+          <button class="btn btn-danger"  onclick="deleteLbProduct(${p.id})" style="font-size:11px;padding:4px 8px">삭제</button>
+        </td>`;
+    }
+    tbody.appendChild(tr);
+  });
+}
+
+function previewCode(code) {
+  // 코드 분해 → 안내판 업데이트
+  const parts = code.split('-');
+  if (parts.length < 4) return;
+  const season = parts[1];
+  const cat    = parts[2];
+  const color  = parts[3].replace(/\d+$/, '');
+  document.getElementById('lb-code-display').textContent = code;
+  document.getElementById('lb-ex-season').textContent = season;
+  document.getElementById('lb-ex-cat').textContent    = cat;
+  document.getElementById('lb-ex-color').textContent  = parts[3];
+  // 카테고리 색 업데이트
+  const ci = LB_CATS[cat];
+  if (ci) {
+    const el = document.getElementById('lb-ex-cat');
+    el.style.background = ci.bg; el.style.color = ci.color;
+  }
+  // 스크롤 to 안내판
+  document.querySelector('.lb-guide-box').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function startLbEdit(id) { lbEditingId = id; renderLabels(); }
+function cancelLbEdit()  { lbEditingId = null; renderLabels(); }
+
+function saveLbEdit(id) {
+  const p = labelProducts.find(x=>x.id===id); if(!p) return;
+  p.nameKo = document.getElementById('lbe-nameko').value.trim() || p.nameKo;
+  p.nameEn = document.getElementById('lbe-nameen').value.trim() || p.nameEn;
+  p.season = document.getElementById('lbe-season').value;
+  p.cat    = document.getElementById('lbe-cat').value;
+  p.color  = document.getElementById('lbe-color').value;
+  // 코드 재생성
+  const sameGroup = labelProducts.filter(x => x.cat===p.cat && x.color===p.color && x.id!==p.id);
+  const num = String(sameGroup.length + 1).padStart(2,'0');
+  p.code = `NM-${p.season}-${p.cat}-${p.color}${num}`;
+  lbEditingId = null;
+  showToast('저장됐어요!');
+  renderLabels();
+}
+
+function deleteLbProduct(id) {
+  const p = labelProducts.find(x=>x.id===id);
+  if (!confirm(`"${p?.nameKo}" 제품을 삭제할까요?`)) return;
+  labelProducts = labelProducts.filter(x=>x.id!==id);
+  showToast('삭제됐어요.');
+  renderLabels();
+}
+
+function exportLabelCSV() {
+  let csv = '제품코드,한국어제품명,영문제품명,시즌,카테고리,색상\n';
+  labelProducts.forEach(p => {
+    csv += `"${p.code}","${p.nameKo}","${p.nameEn}","${p.season}","${p.cat} ${LB_CATS[p.cat]?.desc||''}","${p.color} ${LB_COLORS[p.color]||''}"\n`;
+  });
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `numo-labels-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+}
+function switchSub(sub) {
+  document.querySelectorAll('.sub-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('sub-' + sub).classList.add('active');
+  document.querySelectorAll('.sub-tab')[sub === 'list' ? 0 : 1].classList.add('active');
+}
+
+// ════════════════════════════
+// 원가 계산기 데이터
+// ════════════════════════════
+let costProducts = [
+  { id:1,  name:'26년 7부어깨트임',        mainPrice:4500, mainYard:0.7,  subPrice:4500, subYard:0.035, snap:160, labelSide:38, labelBack:52,  labelCare:38, wapen:500,  poly:78,  finish:900, tag:118, elastic:0,   labor:7200,  laborSnap:400, misc:0, note:'20' },
+  { id:2,  name:'26년 골지조거바지',        mainPrice:6000, mainYard:1.03, subPrice:0,    subYard:0,     snap:0,   labelSide:0,  labelBack:26,  labelCare:19, wapen:500,  poly:500, finish:100, tag:0,   elastic:0,   labor:3500,  laborSnap:0,   misc:0, note:'20' },
+  { id:3,  name:'26년 꽃쉐리',             mainPrice:7700, mainYard:0.85, subPrice:0,    subYard:0,     snap:0,   labelSide:38, labelBack:52,  labelCare:38, wapen:500,  poly:78,  finish:900, tag:118, elastic:100, labor:7000,  laborSnap:0,   misc:0, note:'20' },
+  { id:4,  name:'26년 뉴리틀팔레트세트',   mainPrice:9300, mainYard:0.92, subPrice:11000,subYard:0.14,  snap:0,   labelSide:38, labelBack:460, labelCare:38, wapen:1000, poly:78,  finish:900, tag:118, elastic:100, labor:11800, laborSnap:0,   misc:0, note:'20' },
+  { id:5,  name:'26년 배색시보리',          mainPrice:5800, mainYard:0.94, subPrice:0,    subYard:0,     snap:72,  labelSide:52, labelBack:38,  labelCare:500,wapen:78,   poly:0,   finish:900, tag:118, elastic:100, labor:8000,  laborSnap:0,   misc:0, note:'원단 51"' },
+  { id:6,  name:'26년 볼캡 (루즈핏)',       mainPrice:5800, mainYard:0.12, subPrice:5800, subYard:0.04,  snap:0,   labelSide:230,labelBack:0,   labelCare:38, wapen:0,    poly:78,  finish:0,   tag:118, elastic:0,   labor:15300, laborSnap:0,   misc:0, note:'20' },
+  { id:7,  name:'26년 스트라이프가디건세트',mainPrice:6200, mainYard:1.2,  subPrice:0,    subYard:0,     snap:400, labelSide:38, labelBack:52,  labelCare:38, wapen:500,  poly:78,  finish:900, tag:118, elastic:0,   labor:9600,  laborSnap:1000,misc:0, note:'20' },
+  { id:8,  name:'26년 스트라이프귀보넷',    mainPrice:6200, mainYard:0.2,  subPrice:0,    subYard:0,     snap:0,   labelSide:0,  labelBack:52,  labelCare:38, wapen:500,  poly:78,  finish:900, tag:118, elastic:0,   labor:3200,  laborSnap:0,   misc:0, note:'20' },
+  { id:9,  name:'26년 스트라이프바디수트',  mainPrice:6200, mainYard:0.44, subPrice:0,    subYard:0,     snap:240, labelSide:38, labelBack:52,  labelCare:38, wapen:500,  poly:78,  finish:500, tag:118, elastic:0,   labor:6000,  laborSnap:600, misc:0, note:'20' },
+  { id:10, name:'26년 스트라이프카라세트',  mainPrice:7500, mainYard:1.74, subPrice:0,    subYard:0,     snap:0,   labelSide:0,  labelBack:52,  labelCare:38, wapen:500,  poly:78,  finish:900, tag:118, elastic:100, labor:11000, laborSnap:0,   misc:0, note:'카라티7000/바지4000' },
+  { id:11, name:'26년 클래식핏 (스트라이프)',mainPrice:6200,mainYard:1.35, subPrice:5500, subYard:0.04,  snap:0,   labelSide:38, labelBack:52,  labelCare:38, wapen:500,  poly:78,  finish:900, tag:118, elastic:100, labor:7000,  laborSnap:0,   misc:0, note:'20' },
+  { id:12, name:'26년 클래식핏 (메란지)',   mainPrice:6700, mainYard:1.35, subPrice:6000, subYard:0.04,  snap:0,   labelSide:38, labelBack:52,  labelCare:38, wapen:500,  poly:78,  finish:900, tag:118, elastic:100, labor:6800,  laborSnap:0,   misc:0, note:'20' },
+  { id:13, name:'26년 클래식핏 (앞트임·셔링)',mainPrice:6000,mainYard:1.2, subPrice:6000, subYard:0.04,  snap:80,  labelSide:38, labelBack:52,  labelCare:38, wapen:500,  poly:78,  finish:900, tag:118, elastic:100, labor:7800,  laborSnap:200, misc:0, note:'20' },
+  { id:14, name:'26년 클래식핏 (앞트임·랍바)',mainPrice:6000,mainYard:1.3, subPrice:6000, subYard:0.04,  snap:80,  labelSide:38, labelBack:52,  labelCare:38, wapen:500,  poly:78,  finish:900, tag:118, elastic:100, labor:7700,  laborSnap:200, misc:0, note:'20' },
+  { id:15, name:'26년 후드점퍼',            mainPrice:8000, mainYard:0.8,  subPrice:8500, subYard:0.15,  snap:1000,labelSide:38, labelBack:240, labelCare:19, wapen:500,  poly:78,  finish:600, tag:118, elastic:0,   labor:13000, laborSnap:0,   misc:0, note:'20' },
+];
+let costNextId = 16;
+let openCards = new Set();
+
+function calcCost(p) {
+  const fabric = Math.round(p.mainPrice * p.mainYard + p.subPrice * p.subYard);
+  const mat = (p.snap||0)+(p.labelSide||0)+(p.labelBack||0)+(p.labelCare||0)+
+              (p.wapen||0)+(p.poly||0)+(p.finish||0)+(p.tag||0)+(p.elastic||0);
+  const labor = (p.labor||0)+(p.laborSnap||0);
+  const misc = p.misc||0;
+  return { fabric, mat, labor, misc, total: fabric+mat+labor+misc };
+}
+
+function renderCost() {
+  const q = (document.getElementById('search-input')?.value||'').toLowerCase();
+  const sort = document.getElementById('sort-select')?.value||'name';
+  let list = costProducts.filter(p => p.name.toLowerCase().includes(q));
+  if (sort === 'asc')  list.sort((a,b) => calcCost(a).total - calcCost(b).total);
+  else if (sort === 'desc') list.sort((a,b) => calcCost(b).total - calcCost(a).total);
+  else list.sort((a,b) => a.name.localeCompare(b.name,'ko'));
+
+  const costs = costProducts.map(p => calcCost(p).total);
+  document.getElementById('c-count').textContent = costProducts.length;
+  document.getElementById('c-avg').textContent = costs.length ? fmtW(costs.reduce((a,b)=>a+b,0)/costs.length) : '—';
+  document.getElementById('c-min').textContent = costs.length ? fmtW(Math.min(...costs)) : '—';
+  document.getElementById('c-max').textContent = costs.length ? fmtW(Math.max(...costs)) : '—';
+
+  const grid = document.getElementById('product-grid');
+  grid.innerHTML = '';
+  list.forEach(p => grid.appendChild(makeCard(p)));
+}
+
+function makeCard(p) {
+  const c = calcCost(p);
+  const isOpen = openCards.has(p.id);
+  const div = document.createElement('div');
+  div.className = 'product-card';
+  div.id = 'card-' + p.id;
+  div.innerHTML = `
+    <div class="card-header" onclick="toggleCard(${p.id})">
+      <span class="card-name">${p.name}</span>
+      <div class="card-totals">
+        <div class="card-total-item"><div class="card-total-label">원단비</div><div class="card-total-val">${fmtW(c.fabric)}</div></div>
+        <div class="card-total-item"><div class="card-total-label">부자재</div><div class="card-total-val">${fmtW(c.mat)}</div></div>
+        <div class="card-total-item"><div class="card-total-label">공임</div><div class="card-total-val">${fmtW(c.labor)}</div></div>
+        <div class="card-total-item"><div class="card-total-label">총원가</div><div class="card-total-val" style="color:var(--accent);font-size:16px">${fmtW(c.total)}</div></div>
+      </div>
+      <span class="card-chevron ${isOpen?'open':''}">▼</span>
+    </div>
+    <div class="card-body ${isOpen?'open':''}">
+      <div class="cost-grid">
+        <div>
+          <div class="sec-title">메인원단</div>
+          <div class="cost-fields">
+            <div class="cost-row"><label>원단 단가</label><input type="number" id="e${p.id}-main-price" value="${p.mainPrice}" min="0" oninput="liveCalc(${p.id})"><span class="unit">원/yd</span></div>
+            <div class="cost-row"><label>사용 야드</label><input type="number" id="e${p.id}-main-yard" value="${p.mainYard}" step="0.01" min="0" oninput="liveCalc(${p.id})"><span class="unit">yd</span></div>
+          </div>
+          <div class="sec-title" style="margin-top:14px">서브원단</div>
+          <div class="cost-fields">
+            <div class="cost-row"><label>원단 단가</label><input type="number" id="e${p.id}-sub-price" value="${p.subPrice}" min="0" oninput="liveCalc(${p.id})"><span class="unit">원/yd</span></div>
+            <div class="cost-row"><label>사용 야드</label><input type="number" id="e${p.id}-sub-yard" value="${p.subYard}" step="0.01" min="0" oninput="liveCalc(${p.id})"><span class="unit">yd</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="sec-title">부자재</div>
+          <div class="cost-fields">
+            <div class="cost-row"><label>스냅·단추·지퍼</label><input type="number" id="e${p.id}-snap" value="${p.snap}" min="0" oninput="liveCalc(${p.id})"><span class="unit">원</span></div>
+            <div class="cost-row"><label>라벨 측면</label><input type="number" id="e${p.id}-labelSide" value="${p.labelSide}" min="0" oninput="liveCalc(${p.id})"><span class="unit">원</span></div>
+            <div class="cost-row"><label>라벨 후면</label><input type="number" id="e${p.id}-labelBack" value="${p.labelBack}" min="0" oninput="liveCalc(${p.id})"><span class="unit">원</span></div>
+            <div class="cost-row"><label>라벨 케어</label><input type="number" id="e${p.id}-labelCare" value="${p.labelCare}" min="0" oninput="liveCalc(${p.id})"><span class="unit">원</span></div>
+            <div class="cost-row"><label>와펜</label><input type="number" id="e${p.id}-wapen" value="${p.wapen}" min="0" oninput="liveCalc(${p.id})"><span class="unit">원</span></div>
+            <div class="cost-row"><label>폴리백</label><input type="number" id="e${p.id}-poly" value="${p.poly}" min="0" oninput="liveCalc(${p.id})"><span class="unit">원</span></div>
+            <div class="cost-row"><label>완성비</label><input type="number" id="e${p.id}-finish" value="${p.finish}" min="0" oninput="liveCalc(${p.id})"><span class="unit">원</span></div>
+            <div class="cost-row"><label>택</label><input type="number" id="e${p.id}-tag" value="${p.tag}" min="0" oninput="liveCalc(${p.id})"><span class="unit">원</span></div>
+            <div class="cost-row"><label>고무줄</label><input type="number" id="e${p.id}-elastic" value="${p.elastic}" min="0" oninput="liveCalc(${p.id})"><span class="unit">원</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="sec-title">공임</div>
+          <div class="cost-fields">
+            <div class="cost-row"><label>기본 공임</label><input type="number" id="e${p.id}-labor" value="${p.labor}" min="0" oninput="liveCalc(${p.id})"><span class="unit">원</span></div>
+            <div class="cost-row"><label>단추·스냅 작업비</label><input type="number" id="e${p.id}-laborSnap" value="${p.laborSnap}" min="0" oninput="liveCalc(${p.id})"><span class="unit">원</span></div>
+          </div>
+          <div class="sec-title" style="margin-top:14px">기타</div>
+          <div class="cost-fields">
+            <div class="cost-row"><label>기타 비용</label><input type="number" id="e${p.id}-misc" value="${p.misc}" min="0" oninput="liveCalc(${p.id})"><span class="unit">원</span></div>
+            <div class="cost-row"><label>비고</label><input type="text" id="e${p.id}-note" value="${p.note||''}" style="width:140px;font-family:var(--sans)"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card-summary">
+        <div><div class="s-label">원단비</div><div class="s-val" id="sv-fabric-${p.id}">${fmtW(c.fabric)}</div></div>
+        <div><div class="s-label">부자재</div><div class="s-val" id="sv-mat-${p.id}">${fmtW(c.mat)}</div></div>
+        <div><div class="s-label">공임</div><div class="s-val" id="sv-labor-${p.id}">${fmtW(c.labor)}</div></div>
+        <div><div class="s-label">총원가</div><div class="s-val accent" id="sv-total-${p.id}">${fmtW(c.total)}</div></div>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-primary" onclick="saveCard(${p.id})">저장</button>
+        <button class="btn btn-outline" onclick="resetCard(${p.id})">되돌리기</button>
+        <button class="btn btn-danger" onclick="deleteCostProduct(${p.id})">삭제</button>
+      </div>
+    </div>`;
+  return div;
+}
+
+function liveCalc(pid) {
+  const fabric = gv(`e${pid}-main-price`)*gv(`e${pid}-main-yard`) + gv(`e${pid}-sub-price`)*gv(`e${pid}-sub-yard`);
+  const mat = gv(`e${pid}-snap`)+gv(`e${pid}-labelSide`)+gv(`e${pid}-labelBack`)+gv(`e${pid}-labelCare`)+
+              gv(`e${pid}-wapen`)+gv(`e${pid}-poly`)+gv(`e${pid}-finish`)+gv(`e${pid}-tag`)+gv(`e${pid}-elastic`);
+  const labor = gv(`e${pid}-labor`)+gv(`e${pid}-laborSnap`);
+  const misc = gv(`e${pid}-misc`);
+  const total = fabric+mat+labor+misc;
+  document.getElementById(`sv-fabric-${pid}`).textContent = fmtW(fabric);
+  document.getElementById(`sv-mat-${pid}`).textContent    = fmtW(mat);
+  document.getElementById(`sv-labor-${pid}`).textContent  = fmtW(labor);
+  document.getElementById(`sv-total-${pid}`).textContent  = fmtW(total);
+  const vals = document.querySelectorAll(`#card-${pid} .card-total-val`);
+  if(vals[0]) vals[0].textContent = fmtW(fabric);
+  if(vals[1]) vals[1].textContent = fmtW(mat);
+  if(vals[2]) vals[2].textContent = fmtW(labor);
+  if(vals[3]) vals[3].textContent = fmtW(total);
+}
+
+function saveCard(pid) {
+  const p = costProducts.find(x => x.id===pid); if(!p) return;
+  p.mainPrice=gv(`e${pid}-main-price`); p.mainYard=gv(`e${pid}-main-yard`);
+  p.subPrice=gv(`e${pid}-sub-price`);   p.subYard=gv(`e${pid}-sub-yard`);
+  p.snap=gv(`e${pid}-snap`);            p.labelSide=gv(`e${pid}-labelSide`);
+  p.labelBack=gv(`e${pid}-labelBack`);  p.labelCare=gv(`e${pid}-labelCare`);
+  p.wapen=gv(`e${pid}-wapen`);          p.poly=gv(`e${pid}-poly`);
+  p.finish=gv(`e${pid}-finish`);        p.tag=gv(`e${pid}-tag`);
+  p.elastic=gv(`e${pid}-elastic`);      p.labor=gv(`e${pid}-labor`);
+  p.laborSnap=gv(`e${pid}-laborSnap`);  p.misc=gv(`e${pid}-misc`);
+  p.note=document.getElementById(`e${pid}-note`)?.value||'';
+  showToast('저장됐어요!'); renderCost();
+}
+
+function resetCard(pid) { openCards.add(pid); renderCost(); }
+function toggleCard(pid) { if(openCards.has(pid)) openCards.delete(pid); else openCards.add(pid); renderCost(); }
+function deleteCostProduct(pid) {
+  if(!confirm('이 제품을 삭제할까요?')) return;
+  costProducts = costProducts.filter(p=>p.id!==pid); openCards.delete(pid); renderCost();
+}
+
+function calcNew() {
+  const mainF = gv('n-main-price')*gv('n-main-yard');
+  const subF  = gv('n-sub-price')*gv('n-sub-yard');
+  const fabric = mainF+subF;
+  const mat = gv('n-snap')+gv('n-label-side')+gv('n-label-back')+gv('n-label-care')+
+              gv('n-wapen')+gv('n-poly')+gv('n-finish')+gv('n-tag')+gv('n-elastic');
+  const labor = gv('n-labor')+gv('n-labor-snap');
+  const misc = gv('n-misc');
+  document.getElementById('n-main-total').value = Math.round(mainF).toLocaleString('ko-KR');
+  document.getElementById('n-sub-total').value  = Math.round(subF).toLocaleString('ko-KR');
+  document.getElementById('r-fabric').textContent   = fmtW(fabric);
+  document.getElementById('r-material').textContent = fmtW(mat);
+  document.getElementById('r-labor').textContent    = fmtW(labor);
+  document.getElementById('r-total').textContent    = fmtW(fabric+mat+labor+misc);
+}
+
+function saveNew() {
+  const name = document.getElementById('n-name').value.trim();
+  if(!name) { alert('제품명을 입력해주세요.'); return; }
+  const p = { id:costNextId++, name,
+    mainPrice:gv('n-main-price'), mainYard:gv('n-main-yard'),
+    subPrice:gv('n-sub-price'),   subYard:gv('n-sub-yard'),
+    snap:gv('n-snap'),            labelSide:gv('n-label-side'),
+    labelBack:gv('n-label-back'), labelCare:gv('n-label-care'),
+    wapen:gv('n-wapen'),          poly:gv('n-poly'),
+    finish:gv('n-finish'),        tag:gv('n-tag'),
+    elastic:gv('n-elastic'),      labor:gv('n-labor'),
+    laborSnap:gv('n-labor-snap'), misc:gv('n-misc'),
+    note:document.getElementById('n-note').value,
+  };
+  costProducts.push(p); openCards.add(p.id);
+  showToast(`"${name}" 저장됐어요!`); resetNew(); switchSub('list'); renderCost();
+}
+
+function resetNew() {
+  document.getElementById('n-name').value='';
+  ['n-main-price','n-main-yard','n-sub-price','n-sub-yard','n-snap','n-wapen','n-poly','n-elastic','n-labor','n-labor-snap','n-misc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=0;});
+  document.getElementById('n-label-side').value=38;
+  document.getElementById('n-label-back').value=52;
+  document.getElementById('n-label-care').value=38;
+  document.getElementById('n-finish').value=900;
+  document.getElementById('n-tag').value=118;
+  document.getElementById('n-note').value='';
+  calcNew();
+}
+
+// ════════════════════════════
+// 가격 계산기 데이터
+// ════════════════════════════
+const CATS = {
+  single: { label:'Single item', msrpDefault:2.4, badgeClass:'cat-single' },
+  set:    { label:'Set item',    msrpDefault:2.5, badgeClass:'cat-set' },
+  settop: { label:'Set top',     msrpDefault:2.5, badgeClass:'cat-settop' },
+  outer:  { label:'Outerwear',   msrpDefault:2.4, badgeClass:'cat-outer' },
+};
+let pricingProducts = [
+  { id:1, name:'Numo Basic Tee',        krw:8500,  cat:'single', msrpMult:2.4 },
+  { id:2, name:'Numo Stripe Tee',       krw:9200,  cat:'single', msrpMult:2.4 },
+  { id:3, name:'Numo Set (Top+Bottom)', krw:22000, cat:'set',    msrpMult:2.5 },
+  { id:4, name:'Numo Ball Set Top',     krw:11000, cat:'settop', msrpMult:2.5 },
+  { id:5, name:'Hoodie Jumper',         krw:18000, cat:'outer',  msrpMult:2.4 },
+  { id:6, name:'Numo Ball Cap',         krw:7500,  cat:'single', msrpMult:2.4 },
+  { id:7, name:'Numo Padding Vest',     krw:32000, cat:'outer',  msrpMult:2.4 },
+  { id:8, name:'Numo Jogger Set',       krw:19500, cat:'set',    msrpMult:2.5 },
+];
+let pNextId = 9;
+
+function pSettings() {
+  return {
+    exRate:    gv('p-exrate')     || 1400,
+    fobMult:   gv('p-fob')        || 1.15,
+    wsMult:    gv('p-ws')          || 2.4,
+    threshold: gv('p-threshold')  || 40,
+  };
+}
+
+function calcPricing(p) {
+  const s = pSettings();
+  const fobUsd  = (p.krw / s.exRate) * s.fobMult;
+  const wsUsd   = fobUsd * s.wsMult;
+  const msrpUsd = wsUsd * p.msrpMult;
+  const brandMargin = ((wsUsd - fobUsd) / wsUsd) * 100;
+  return { fobUsd, wsUsd, msrpUsd, brandMargin };
+}
+
+function renderPricing() {
+  const s = pSettings();
+  document.getElementById('p-rate-hint').textContent = `기준: ${fmtKRW(s.exRate)} KRW`;
+  const all = pricingProducts.map(p => ({...p, ...calcPricing(p)}));
+  const warnCount  = all.filter(p => p.brandMargin < s.threshold).length;
+  const avgMargin  = all.length ? all.reduce((a,p)=>a+p.brandMargin,0)/all.length : 0;
+  const avgMsrp    = all.length ? all.reduce((a,p)=>a+p.msrpUsd,0)/all.length : 0;
+
+  document.getElementById('p-total').textContent      = all.length;
+  document.getElementById('p-avgmargin').textContent  = all.length ? avgMargin.toFixed(1)+'%' : '—';
+  document.getElementById('p-avgmargin').className    = 'stat-value'+(avgMargin < s.threshold?' warn':' ok');
+  document.getElementById('p-warncount').textContent  = warnCount;
+  document.getElementById('p-avgmsrp').textContent    = all.length ? '$'+Math.ceil(avgMsrp) : '—';
+  document.getElementById('p-warn-banner').classList.toggle('visible', warnCount>0);
+
+  const container = document.getElementById('p-tables');
+  container.innerHTML = '';
+  ['single','settop','set','outer'].forEach(cat => {
+    const items = all.filter(p=>p.cat===cat); if(!items.length) return;
+    const ci = CATS[cat];
+    const div = document.createElement('div');
+    div.className = 'table-wrap';
+    div.innerHTML = `
+      <div class="table-header">
+        <span class="table-title">${ci.label}</span>
+        <span class="cat-badge ${ci.badgeClass}">${items.length}개</span>
+      </div>
+      <table>
+        <thead><tr>
+          <th style="width:28%">제품명</th>
+          <th class="right">원가 (KRW)</th>
+          <th class="right">FOB (USD)</th>
+          <th class="right">Wholesale</th>
+          <th class="right">MSRP</th>
+          <th class="right">브랜드 마진</th>
+          <th></th>
+        </tr></thead>
+        <tbody>${items.map(p=>`
+          <tr>
+            <td class="pname">${p.name}</td>
+            <td class="right">₩${fmtKRW(p.krw)}</td>
+            <td class="right">$${p.fobUsd.toFixed(2)}</td>
+            <td class="right">$${p.wsUsd.toFixed(2)}</td>
+            <td class="right"><strong>$${Math.ceil(p.msrpUsd)}</strong></td>
+            <td class="right"><span class="margin-pill ${p.brandMargin>=s.threshold?'margin-ok':'margin-warn'}">${p.brandMargin.toFixed(1)}%</span></td>
+            <td style="text-align:center"><button class="btn-del" onclick="deletePricingProduct(${p.id})">×</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+    container.appendChild(div);
+  });
+}
+
+function addPricingProduct() {
+  const name = document.getElementById('pf-name').value.trim();
+  const krw  = parseFloat(document.getElementById('pf-krw').value);
+  const cat  = document.getElementById('pf-cat').value;
+  const msrpMult = parseFloat(document.getElementById('pf-msrpmult').value);
+  if(!name||!krw) { alert('제품명과 원가를 입력해주세요.'); return; }
+  pricingProducts.push({id:pNextId++, name, krw, cat, msrpMult});
+  document.getElementById('pf-name').value='';
+  document.getElementById('pf-krw').value='';
+  renderPricing();
+}
+
+function deletePricingProduct(id) {
+  if(!confirm('이 제품을 삭제할까요?')) return;
+  pricingProducts = pricingProducts.filter(p=>p.id!==id); renderPricing();
+}
+
+function pfCatChange() {
+  const def = CATS[document.getElementById('pf-cat').value]?.msrpDefault||2.4;
+  document.getElementById('pf-msrpmult').value = def;
+}
+
+function exportCSV() {
+  let csv = '제품명,카테고리,원가(KRW),FOB(USD),Wholesale(USD),MSRP(USD),브랜드마진(%)\n';
+  pricingProducts.forEach(p => {
+    const c = calcPricing(p);
+    csv += `"${p.name}","${CATS[p.cat].label}",${p.krw},${c.fobUsd.toFixed(2)},${c.wsUsd.toFixed(2)},${Math.ceil(c.msrpUsd)},${c.brandMargin.toFixed(1)}\n`;
+  });
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `numo-pricing-${new Date().toISOString().slice(0,10)}.csv`; a.click();
+}
+
+function copyTable() {
+  let txt = '제품명\t원가(KRW)\tFOB(USD)\tWholesale\tMSRP\t마진\n';
+  pricingProducts.forEach(p => {
+    const c = calcPricing(p);
+    txt += `${p.name}\t₩${fmtKRW(p.krw)}\t$${c.fobUsd.toFixed(2)}\t$${c.wsUsd.toFixed(2)}\t$${Math.ceil(c.msrpUsd)}\t${c.brandMargin.toFixed(1)}%\n`;
+  });
+  navigator.clipboard.writeText(txt).then(()=>showToast('클립보드에 복사됐어요!'));
+}
+
+// ════════════════════════════
+// KC 인증 관리
+// ════════════════════════════
+let kcGroups = [
+  { id:1, fabric:'100% 면 단색', composition:'면 100%',
+    certNo:'KC-2023-1021-001', status:'완료',
+    issued:'2023-10-21', expiry:'2026-10-20',
+    agency:'KTL', cost:320000,
+    products:['7부어깨트임','꽃쉐리','클래식핏(스트라이프)','클래식핏(메란지)','클래식핏(앞트임)'],
+    note:'동일 원단 추가 제품도 같은 번호 적용 가능' },
+  { id:2, fabric:'면 스트라이프 원단', composition:'면 100%',
+    certNo:'KC-2023-1105-002', status:'완료',
+    issued:'2023-11-05', expiry:'2026-11-04',
+    agency:'KOTITI', cost:280000,
+    products:['스트라이프가디건세트','스트라이프귀보넷','스트라이프바디수트','스트라이프카라세트'],
+    note:'' },
+  { id:3, fabric:'면 골지 원단', composition:'면 95% 스판 5%',
+    certNo:'KC-2024-0315-003', status:'완료',
+    issued:'2024-03-15', expiry:'2027-03-14',
+    agency:'FITI', cost:310000,
+    products:['골지조거바지'],
+    note:'스판 함유로 별도 그룹' },
+  { id:4, fabric:'배색 시보리 원단', composition:'면 90% 폴리 10%',
+    certNo:'KC-2024-0602-004', status:'완료',
+    issued:'2024-06-02', expiry:'2027-06-01',
+    agency:'KTL', cost:290000,
+    products:['배색시보리'],
+    note:'원단 51" 규격' },
+  { id:5, fabric:'후드 혼방 원단', composition:'면 60% 폴리 40%',
+    certNo:'', status:'진행중',
+    issued:'', expiry:'',
+    agency:'FITI', cost:330000,
+    products:['후드점퍼'],
+    note:'시험 진행 중 — 결과 대기' },
+  { id:6, fabric:'볼캡 원단 (모자류)', composition:'면 100%',
+    certNo:'', status:'예정',
+    issued:'', expiry:'',
+    agency:'', cost:0,
+    products:['볼캡(루즈핏)'],
+    note:'모자류 별도 인증 기준 확인 필요' },
+];
+let kcNextId = 7;
+let kcOpenCards = new Set();
+let kcEditId = null;
+
+function kcDaysToExpiry(expiry) {
+  if (!expiry) return null;
+  return Math.ceil((new Date(expiry) - new Date()) / 86400000);
+}
+
+function kcExpiryLabel(expiry, status) {
+  if (status === '만료') return { text: '만료됨', cls: 'kc-status-만료' };
+  if (!expiry) return { text: '날짜 미정', cls: 'kc-status-예정' };
+  const d = kcDaysToExpiry(expiry);
+  if (d < 0)   return { text: '만료됨', cls: 'kc-status-만료' };
+  if (d <= 90) return { text: `D-${d} 만료`, cls: 'kc-expiry-near' };
+  return { text: new Date(expiry).toLocaleDateString('ko-KR', {year:'numeric',month:'short',day:'numeric'}), cls: '' };
+}
+
+function renderKC() {
+  const q      = (document.getElementById('kc-search')?.value||'').toLowerCase();
+  const fStat  = document.getElementById('kc-filter-status')?.value||'all';
+  const fFab   = document.getElementById('kc-filter-fabric')?.value||'all';
+
+  // 원단 필터 옵션 동기화
+  const fabSel = document.getElementById('kc-filter-fabric');
+  const curFab = fabSel.value;
+  fabSel.innerHTML = '<option value="all">전체 원단</option>';
+  kcGroups.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.fabric; opt.textContent = g.fabric;
+    if (g.fabric === curFab) opt.selected = true;
+    fabSel.appendChild(opt);
+  });
+
+  let list = kcGroups.filter(g => {
+    const matchQ = g.fabric.toLowerCase().includes(q) || (g.certNo||'').toLowerCase().includes(q) || g.products.some(p=>p.toLowerCase().includes(q));
+    const matchS = fStat === 'all' || g.status === fStat;
+    const matchF = fFab  === 'all' || g.fabric === fFab;
+    return matchQ && matchS && matchF;
+  });
+
+  // 통계
+  const done     = kcGroups.filter(g=>g.status==='완료').length;
+  const progress = kcGroups.filter(g=>g.status==='진행중').length;
+  const expiring = kcGroups.filter(g=>{
+    const d = kcDaysToExpiry(g.expiry);
+    return d !== null && d >= 0 && d <= 90;
+  }).length;
+  document.getElementById('kc-s-groups').textContent   = kcGroups.length;
+  document.getElementById('kc-s-done').textContent     = done;
+  document.getElementById('kc-s-progress').textContent = progress;
+  document.getElementById('kc-s-expiring').textContent = expiring;
+
+  // 만료 임박 배너
+  const banner = document.getElementById('kc-expiry-banner');
+  const nearList = kcGroups.filter(g=>{ const d=kcDaysToExpiry(g.expiry); return d!==null&&d>=0&&d<=90; });
+  if (nearList.length) {
+    banner.textContent = `⚠ 만료 임박 원단: ${nearList.map(g=>`${g.fabric} (D-${kcDaysToExpiry(g.expiry)})`).join(' / ')}`;
+    banner.classList.add('visible');
+  } else {
+    banner.classList.remove('visible');
+  }
+
+  const grid = document.getElementById('kc-grid');
+  grid.innerHTML = '';
+  if (!list.length) {
+    grid.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3);font-family:var(--mono);font-size:13px">등록된 KC 그룹이 없어요</div>';
+    return;
+  }
+
+  // 상태 순서: 진행중 → 예정 → 완료 → 만료
+  const statusOrder = { '진행중':0,'예정':1,'완료':2,'만료':3 };
+  list.sort((a,b) => (statusOrder[a.status]??9) - (statusOrder[b.status]??9));
+  list.forEach(g => grid.appendChild(makeKCCard(g)));
+}
+
+function makeKCCard(g) {
+  const isOpen = kcOpenCards.has(g.id);
+  const exLabel = kcExpiryLabel(g.expiry, g.status);
+  const totalCost = g.cost ? '₩' + g.cost.toLocaleString('ko-KR') : '—';
+  const issuedStr = g.issued ? new Date(g.issued).toLocaleDateString('ko-KR',{year:'numeric',month:'short',day:'numeric'}) : '—';
+
+  const div = document.createElement('div');
+  div.className = 'kc-card';
+  div.id = 'kc-card-' + g.id;
+  div.innerHTML = `
+    <div class="kc-card-header" onclick="toggleKCCard(${g.id})">
+      <div style="flex:1;min-width:0">
+        <div class="kc-fabric-name">${g.fabric}</div>
+        ${g.composition ? `<div style="font-size:12px;color:var(--text3);font-family:var(--mono);margin-top:2px">${g.composition}</div>` : ''}
+      </div>
+      <div class="kc-header-meta">
+        <span class="kc-certno">${g.certNo || '번호 미정'}</span>
+        <span class="kc-status-badge kc-status-${g.status}">${g.status}</span>
+        ${exLabel.cls ? `<span class="kc-status-badge ${exLabel.cls}">${exLabel.text}</span>` : ''}
+        <span style="font-size:12px;color:var(--text3);font-family:var(--mono)">${g.products.length}개 제품</span>
+      </div>
+      <span class="card-chevron ${isOpen?'open':''}" style="margin-left:8px;font-size:12px;color:var(--text3);transition:transform 0.2s${isOpen?';transform:rotate(180deg)':''}">▼</span>
+    </div>
+    <div class="kc-body ${isOpen?'open':''}">
+      <div class="kc-detail-grid">
+        <div class="kc-detail-item">
+          <div class="kd-label">인증번호</div>
+          <div class="kd-val mono">${g.certNo || '—'}</div>
+        </div>
+        <div class="kc-detail-item">
+          <div class="kd-label">취득일</div>
+          <div class="kd-val">${issuedStr}</div>
+        </div>
+        <div class="kc-detail-item">
+          <div class="kd-label">만료일</div>
+          <div class="kd-val ${kcDaysToExpiry(g.expiry)<=90&&kcDaysToExpiry(g.expiry)>=0?'':''}">
+            ${g.expiry ? new Date(g.expiry).toLocaleDateString('ko-KR',{year:'numeric',month:'short',day:'numeric'}) : '—'}
+          </div>
+        </div>
+        <div class="kc-detail-item">
+          <div class="kd-label">시험 기관</div>
+          <div class="kd-val">${g.agency || '—'}</div>
+        </div>
+        <div class="kc-detail-item">
+          <div class="kd-label">시험 비용</div>
+          <div class="kd-val mono">${totalCost}</div>
+        </div>
+        <div class="kc-detail-item">
+          <div class="kd-label">원단 조성</div>
+          <div class="kd-val">${g.composition || '—'}</div>
+        </div>
+        <div class="kc-detail-item">
+          <div class="kd-label">상태</div>
+          <div class="kd-val"><span class="kc-status-badge kc-status-${g.status}">${g.status}</span></div>
+        </div>
+        <div class="kc-detail-item">
+          <div class="kd-label">연결 제품 수</div>
+          <div class="kd-val mono">${g.products.length}개</div>
+        </div>
+      </div>
+      <div class="kc-products-section">
+        <div class="kc-products-label">연결 제품</div>
+        <div class="kc-product-tags">
+          ${g.products.map(p=>`<span class="kc-product-tag">${p}</span>`).join('')}
+          ${g.products.length===0?'<span style="font-size:12px;color:var(--text3)">—</span>':''}
+        </div>
+      </div>
+      ${g.note ? `<div class="kc-note-box visible">${g.note}</div>` : ''}
+      <div class="kc-card-actions">
+        <button class="btn btn-outline" onclick="editKCGroup(${g.id})">편집</button>
+        <button class="btn btn-danger" onclick="deleteKCGroup(${g.id})">삭제</button>
+      </div>
+    </div>`;
+  return div;
+}
+
+function toggleKCCard(id) {
+  if (kcOpenCards.has(id)) kcOpenCards.delete(id); else kcOpenCards.add(id);
+  renderKC();
+}
+
+function openKCModal(editId=null) {
+  kcEditId = editId;
+  const m = document.getElementById('kc-modal-overlay');
+  const g = editId ? kcGroups.find(x=>x.id===editId) : null;
+  document.getElementById('kc-modal-title').textContent = editId ? '원단 그룹 편집' : '신규 원단 그룹';
+  document.getElementById('km-fabric').value      = g?.fabric      || '';
+  document.getElementById('km-composition').value = g?.composition || '';
+  document.getElementById('km-certno').value      = g?.certNo      || '';
+  document.getElementById('km-status').value      = g?.status      || '완료';
+  document.getElementById('km-issued').value      = g?.issued      || '';
+  document.getElementById('km-expiry').value      = g?.expiry      || '';
+  document.getElementById('km-agency').value      = g?.agency      || '';
+  document.getElementById('km-cost').value        = g?.cost        || '';
+  document.getElementById('km-products').value    = g ? g.products.join(', ') : '';
+  document.getElementById('km-note').value        = g?.note        || '';
+  m.classList.add('open');
+}
+
+function closeKCModal() {
+  document.getElementById('kc-modal-overlay').classList.remove('open');
+  kcEditId = null;
+}
+
+function saveKCGroup() {
+  const fabric = document.getElementById('km-fabric').value.trim();
+  if (!fabric) { alert('원단명을 입력해주세요.'); return; }
+  const raw = document.getElementById('km-products').value;
+  const products = raw.split(',').map(s=>s.trim()).filter(Boolean);
+  const data = {
+    fabric,
+    composition: document.getElementById('km-composition').value.trim(),
+    certNo:  document.getElementById('km-certno').value.trim(),
+    status:  document.getElementById('km-status').value,
+    issued:  document.getElementById('km-issued').value,
+    expiry:  document.getElementById('km-expiry').value,
+    agency:  document.getElementById('km-agency').value.trim(),
+    cost:    parseFloat(document.getElementById('km-cost').value)||0,
+    products,
+    note:    document.getElementById('km-note').value.trim(),
+  };
+  if (kcEditId) {
+    const idx = kcGroups.findIndex(g=>g.id===kcEditId);
+    if (idx>=0) kcGroups[idx] = { ...kcGroups[idx], ...data };
+    kcOpenCards.add(kcEditId);
+  } else {
+    const newG = { id: kcNextId++, ...data };
+    kcGroups.push(newG);
+    kcOpenCards.add(newG.id);
+  }
+  closeKCModal();
+  showToast(kcEditId ? '수정됐어요!' : `"${fabric}" 추가됐어요!`);
+  renderKC();
+}
+
+function editKCGroup(id) { openKCModal(id); }
+
+function deleteKCGroup(id) {
+  const g = kcGroups.find(x=>x.id===id);
+  if (!confirm(`"${g?.fabric}" 그룹을 삭제할까요?`)) return;
+  kcGroups = kcGroups.filter(x=>x.id!==id);
+  kcOpenCards.delete(id);
+  showToast('삭제됐어요.');
+  renderKC();
+}
+
+// 모달 바깥 클릭 시 닫기
+document.getElementById('kc-modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeKCModal();
+});
+document.getElementById('today-label').textContent =
+  new Date().toLocaleDateString('ko-KR', {year:'numeric',month:'long',day:'numeric',weekday:'short'});
+
+// ── 초기화 ──
+calcNew();
+renderCost();
+renderPricing();
+renderKC();
+renderLabels();
+</script>
+</body>
+</html>
